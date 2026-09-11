@@ -1,4 +1,3 @@
-```bat
 @echo off
 setlocal
 
@@ -55,6 +54,7 @@ echo.
   -ub %UBATCH% ^
   -t %THREADS% ^
   --cache-reuse 256 ^
+  --sse-ping-interval 15 ^
   --host 127.0.0.1 ^
   --port 8080
 
@@ -63,4 +63,4 @@ echo ============================================================
 echo llama-server stopped.
 echo ============================================================
 pause
-```
+
