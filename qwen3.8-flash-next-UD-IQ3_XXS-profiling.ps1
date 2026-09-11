@@ -664,49 +664,85 @@ function Stop-LoggedServer {
         [hashtable]$Server
     )
 
+    Write-Host ""
+    Write-Host "========== STOP-LOGGED-SERVER ==========" -ForegroundColor Yellow
+
     if ($null -eq $Server) {
+        Write-Host "Server object is NULL"
         return
     }
 
+    Write-Host "Server object exists"
+
     $process = $Server.Process
 
-    if ($null -ne $process) {
+    if ($null -eq $process) {
+        Write-Host "Process object is NULL"
+    }
+    else {
+        Write-Host "Process object exists"
+        
+        try {
+            Write-Host "HasExited = $($process.HasExited)"
+        }
+        catch {
+            Write-Host "ERROR reading HasExited: $($_.Exception.Message)" -ForegroundColor Red
+        }
 
         try {
-
             if (-not $process.HasExited) {
+            Write-Info "Stopping llama-server..."
 
-                Write-Info "Stopping llama-server..."
+            Write-Host "[DEBUG] About to Kill()"
+            $process.Kill()
+            Write-Host "[DEBUG] Kill() completed"
 
-                $process.Kill()
+            Write-Host "[DEBUG] About to WaitForExit()"
+            $waitResult = $process.WaitForExit(10000)
+            Write-Host "[DEBUG] WaitForExit() returned: $waitResult"
 
-                $process.WaitForExit(10000) | Out-Null
+            Write-Host "[DEBUG] Process HasExited: $($process.HasExited)"
+            }
+            else {
+                Write-Host "Process was already exited"
             }
         }
         catch {
-            Write-Warn "Could not cleanly stop llama-server."
+            Write-Host "ERROR stopping process:" -ForegroundColor Red
+            Write-Host $_.Exception.ToString() -ForegroundColor Red
         }
 
         try {
+            Write-Host "Disposing process..."
             $process.Dispose()
+            Write-Host "Process disposed"
         }
         catch {
+            Write-Host "ERROR disposing process: $($_.Exception.Message)" -ForegroundColor Red
         }
     }
 
     try {
+        Write-Host "Flushing/closing StdOut..."
         $Server.StdOut.Flush()
         $Server.StdOut.Close()
+        Write-Host "StdOut closed"
     }
     catch {
+        Write-Host "ERROR closing StdOut: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     try {
+        Write-Host "Flushing/closing StdErr..."
         $Server.StdErr.Flush()
         $Server.StdErr.Close()
+        Write-Host "StdErr closed"
     }
     catch {
+        Write-Host "ERROR closing StdErr: $($_.Exception.Message)" -ForegroundColor Red
     }
+
+    Write-Host "========== STOP COMPLETE ==========" -ForegroundColor Yellow
 }
 
 # ============================================================
@@ -1493,16 +1529,46 @@ foreach ($slots in $CacheSlotsToTest) {
     #
     # If the machine crashes, the successful tests before the
     # crash remain recorded.
-    $SlotResults |
-        Sort-Object {
-            [int]$_.Slots
-        } |
-        Export-Csv `
-            -Path $SlotResultsFile `
-            -NoTypeInformation
+
+    Write-Host ""
+    Write-Host "========== POST SERVER CLEANUP ==========" -ForegroundColor Cyan
+    Write-Host "[DEBUG] Stop-LoggedServer returned successfully."
+    Write-Host "[DEBUG] SlotResults count: $($SlotResults.Count)"
+    Write-Host "[DEBUG] SlotResultsFile: $SlotResultsFile"
+    Write-Host "[DEBUG] Starting Export-Csv..."
+
+    try {
+
+        $SlotResults |
+            Sort-Object {
+                [int]$_.Slots
+            } |
+            Export-Csv `
+                -Path $SlotResultsFile `
+                -NoTypeInformation `
+                -ErrorAction Stop
+
+        Write-Host "[DEBUG] Export-Csv completed successfully." -ForegroundColor Green
+    }
+    catch {
+
+        Write-Host ""
+        Write-Host "========== EXPORT-CSV ERROR ==========" -ForegroundColor Red
+        Write-Host $_.Exception.ToString() -ForegroundColor Red
+        Write-Host "=======================================" -ForegroundColor Red
+
+        Read-Host "Export-Csv failed. Press ENTER"
+
+        throw
+    }
+
+    Write-Host "[DEBUG] Starting shutdown wait: $ServerShutdownWaitSeconds seconds"
 
     Start-Sleep `
         -Seconds $ServerShutdownWaitSeconds
+
+    Write-Host "[DEBUG] Shutdown wait completed."
+    Write-Host "[DEBUG] End of slot iteration."
 }
 
 # ============================================================
