@@ -22,7 +22,7 @@ set "SLOTS=32"
 REM ------------------------------------------------------------
 REM Performance / memory
 REM ------------------------------------------------------------
-set "CONTEXT=65536"
+set "CONTEXT=135536"
 set "BATCH=512"
 set "UBATCH=256"
 set "THREADS=6"
